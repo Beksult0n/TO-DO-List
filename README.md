@@ -1,8 +1,4 @@
-# TO-DO-List
-PyQt5 yordamida TO-DO List yaratish
-
-# 🧠 Smart Daily Planner (PyQt5)
-
+# 🧠 PyQt5 yordamida TO-DO List yaratish
 Bu loyiha — PyQt5 yordamida yaratilgan **sodda, chiroyli va qulay desktop planner (TODO app)**.  
 U kundalik vazifalarni boshqarish, vaqtni rejalashtirish va fokusni oshirish uchun mo‘ljallangan.
 
