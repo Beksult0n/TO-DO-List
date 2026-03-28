@@ -71,5 +71,9 @@ cd TO-DO-List
 ```bash
 pip install -r requirements.txt
 ```
+## .EXE fayl sifatida o'rnatish
+```bash
+python -m PyInstaller --noconfirm --onefile --windowed --name "TO-DO_List" --icon "icon.png" --add-data "todo.ui;." todo.py
+```
 
 
