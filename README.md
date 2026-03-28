@@ -65,4 +65,11 @@ U kundalik vazifalarni boshqarish, vaqtni rejalashtirish va fokusni oshirish uch
 
 ```bash
 git clone https://github.com/Beksult0n/TO-DO-List.git
-cd smart-daily-planner
+cd TO-DO-List
+```
+## Kerakli kutubxonalarni o'rnatish
+```bash
+pip install -r requirements.txt
+```
+
+
