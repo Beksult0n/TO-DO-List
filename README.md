@@ -51,13 +51,11 @@ U kundalik vazifalarni boshqarish, vaqtni rejalashtirish va fokusni oshirish uch
 ## 🖼️ Skrinshotlar
 
 ### Light Mode
-![Light Mode](screenshots/light.png)
+![Light Mode](light.png)
 
 ### Dark Mode
-![Dark Mode](screenshots/dark.png)
+![Dark Mode](dark.png)
 
-### Pomodoro Timer
-![Pomodoro](screenshots/pomodoro.png)
 
 ---
 
