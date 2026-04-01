@@ -5,10 +5,11 @@ import sqlite3
 from datetime import datetime
 
 from PyQt5.uic import loadUi
-from PyQt5.QtCore import Qt, QTimer, QTime
+from PyQt5.QtCore import Qt, QTimer, QTime, QDateTime
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QListWidgetItem, QMessageBox,
-    QFileDialog, QInputDialog
+    QFileDialog
 )
 
 try:
@@ -22,23 +23,40 @@ except Exception:
 DB_NAME = "planner.db"
 
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
-        loadUi("todo.ui", self)
+        loadUi(resource_path("todo.ui"), self)
 
         self.dark_mode = False
         self.current_seconds = 25 * 60
         self.pomodoro_running = False
         self.editing_task_id = None
 
+        # deadline notification uchun bir marta ogohlantirilgan tasklar
+        self.notified_task_ids = set()
+
         self.init_db()
+        self.ensure_deadline_column()
         self.bind_events()
         self.start_clock()
+        self.start_deadline_checker()
         self.update_pomodoro_label()
+        self.prepare_defaults()
         self.calendarDateChanged()
         self.apply_light_theme()
 
+    # =========================
+    # DATABASE
+    # =========================
     def init_db(self):
         db = sqlite3.connect(DB_NAME)
         cursor = db.cursor()
@@ -50,11 +68,25 @@ class Window(QWidget):
                 category TEXT DEFAULT 'General',
                 completed TEXT NOT NULL DEFAULT 'NO',
                 date TEXT NOT NULL,
-                time TEXT DEFAULT ''
+                time TEXT DEFAULT '',
+                deadline TEXT DEFAULT ''
             )
         """)
 
         db.commit()
+        db.close()
+
+    def ensure_deadline_column(self):
+        db = sqlite3.connect(DB_NAME)
+        cursor = db.cursor()
+
+        cursor.execute("PRAGMA table_info(tasks)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "deadline" not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN deadline TEXT DEFAULT ''")
+            db.commit()
+
         db.close()
 
     def db_execute(self, query, params=()):
@@ -82,6 +114,14 @@ class Window(QWidget):
         db.close()
         return row
 
+    # =========================
+    # SETUP
+    # =========================
+    def prepare_defaults(self):
+        self.timeEdit.setTime(QTime.currentTime())
+
+        if hasattr(self, "deadlineEdit"):
+            self.deadlineEdit.setDateTime(QDateTime.currentDateTime().addSecs(3600))
 
     def bind_events(self):
         self.calendarWidget.selectionChanged.connect(self.calendarDateChanged)
@@ -104,6 +144,9 @@ class Window(QWidget):
 
         self.taskLineEdit.returnPressed.connect(self.add_or_update_task)
 
+    # =========================
+    # CLOCK
+    # =========================
     def start_clock(self):
         self.clockTimer = QTimer(self)
         self.clockTimer.timeout.connect(self.update_clock)
@@ -115,6 +158,49 @@ class Window(QWidget):
         self.clockLabel.setText(now.strftime("%H:%M:%S"))
         self.dateNowLabel.setText(now.strftime("%d-%m-%Y"))
 
+    # =========================
+    # DEADLINE CHECKER
+    # =========================
+    def start_deadline_checker(self):
+        self.deadlineTimer = QTimer(self)
+        self.deadlineTimer.timeout.connect(self.check_deadlines)
+        self.deadlineTimer.start(60000)  # har 1 daqiqada tekshiradi
+        self.check_deadlines()
+
+    def check_deadlines(self):
+        now = datetime.now()
+
+        rows = self.db_fetchall("""
+            SELECT id, task, deadline, completed
+            FROM tasks
+            WHERE deadline IS NOT NULL AND deadline != ''
+        """)
+
+        for task_id, task, deadline, completed in rows:
+            if completed == "YES":
+                continue
+
+            try:
+                deadline_dt = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
+            except ValueError:
+                continue
+
+            diff_seconds = (deadline_dt - now).total_seconds()
+
+            # 1 soatdan kam qolsa bir marta notification
+            if 0 <= diff_seconds <= 3600 and task_id not in self.notified_task_ids:
+                QMessageBox.warning(
+                    self,
+                    "Deadline yaqinlashmoqda",
+                    f"'{task}' vazifasining deadline vaqti yaqinlashib qoldi!\n\nDeadline: {deadline}"
+                )
+                self.notified_task_ids.add(task_id)
+
+        self.update_task_list(self.selected_date_value())
+
+    # =========================
+    # TASKS
+    # =========================
     def selected_date_value(self):
         return self.calendarWidget.selectedDate().toString("yyyy-MM-dd")
 
@@ -125,30 +211,64 @@ class Window(QWidget):
         self.tasksListWidget.clear()
 
         rows = self.db_fetchall("""
-            SELECT id, task, category, completed, time
+            SELECT id, task, category, completed, time, deadline
             FROM tasks
             WHERE date = ?
-            ORDER BY time ASC, id ASC
+            ORDER BY
+                CASE WHEN deadline IS NULL OR deadline = '' THEN 1 ELSE 0 END,
+                deadline ASC,
+                time ASC,
+                id ASC
         """, (date_value,))
 
-        for task_id, task, category, completed, task_time in rows:
+        now = datetime.now()
+
+        for task_id, task, category, completed, task_time, deadline in rows:
             display_text = f"[{category}]"
+
             if task_time:
                 display_text += f" [{task_time}]"
+
             display_text += f" {task}"
+
+            if deadline:
+                display_text += f" | Deadline: {deadline}"
 
             item = QListWidgetItem(display_text)
             item.setData(Qt.UserRole, task_id)
             item.setData(Qt.UserRole + 1, task)
             item.setData(Qt.UserRole + 2, category)
             item.setData(Qt.UserRole + 3, task_time)
+            item.setData(Qt.UserRole + 4, deadline)
 
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
 
-            if completed == "Xa":
+            if completed == "YES":
                 item.setCheckState(Qt.Checked)
             else:
                 item.setCheckState(Qt.Unchecked)
+
+            # Deadline ranglari
+            if deadline and completed != "YES":
+                try:
+                    deadline_dt = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
+                    diff_seconds = (deadline_dt - now).total_seconds()
+
+                    if diff_seconds < 0:
+                        # O'tib ketgan — qizil
+                        item.setForeground(QColor("#ffffff"))
+                        item.setBackground(QColor("#ef4444"))
+                    elif diff_seconds <= 86400:
+                        # 24 soat ichida — sariq
+                        item.setForeground(QColor("#111827"))
+                        item.setBackground(QColor("#facc15"))
+                except ValueError:
+                    pass
+
+            # Bajarilgan bo‘lsa yashil tus
+            if completed == "YES":
+                item.setForeground(QColor("#ffffff"))
+                item.setBackground(QColor("#22c55e"))
 
             self.tasksListWidget.addItem(item)
 
@@ -161,29 +281,38 @@ class Window(QWidget):
         date_value = self.selected_date_value()
         time_value = self.timeEdit.time().toString("HH:mm")
 
+        deadline_value = ""
+        if hasattr(self, "deadlineEdit"):
+            deadline_value = self.deadlineEdit.dateTime().toString("yyyy-MM-dd HH:mm")
+
         if not task:
             QMessageBox.warning(self, "Xatolik", "Vazifa bo'sh bo'lmasin.")
             return
 
         if self.editing_task_id is None:
             self.db_execute("""
-                INSERT INTO tasks(task, category, completed, date, time)
-                VALUES (?, ?, 'NO', ?, ?)
-            """, (task, category, date_value, time_value))
+                INSERT INTO tasks(task, category, completed, date, time, deadline)
+                VALUES (?, ?, 'NO', ?, ?, ?)
+            """, (task, category, date_value, time_value, deadline_value))
             QMessageBox.information(self, "Qo'shildi", "Vazifa qo'shildi.")
         else:
             self.db_execute("""
                 UPDATE tasks
-                SET task = ?, category = ?, time = ?
+                SET task = ?, category = ?, time = ?, deadline = ?
                 WHERE id = ?
-            """, (task, category, time_value, self.editing_task_id))
+            """, (task, category, time_value, deadline_value, self.editing_task_id))
+
             QMessageBox.information(self, "Yangilandi", "Vazifa yangilandi.")
             self.editing_task_id = None
             self.addButton.setText("Vazifa qo'shish")
 
         self.taskLineEdit.clear()
-        self.categoryComboBox.setCurrentText("General")
+        self.categoryComboBox.setCurrentIndex(0)
         self.timeEdit.setTime(QTime.currentTime())
+
+        if hasattr(self, "deadlineEdit"):
+            self.deadlineEdit.setDateTime(QDateTime.currentDateTime().addSecs(3600))
+
         self.update_task_list(date_value)
 
     def load_selected_task_for_edit(self):
@@ -196,14 +325,22 @@ class Window(QWidget):
         task = item.data(Qt.UserRole + 1)
         category = item.data(Qt.UserRole + 2)
         task_time = item.data(Qt.UserRole + 3)
+        deadline = item.data(Qt.UserRole + 4)
 
         self.taskLineEdit.setText(task)
         self.categoryComboBox.setCurrentText(category)
 
         if task_time:
-            self.timeEdit.setTime(QTime.fromString(task_time, "HH:mm"))
+            parsed_time = QTime.fromString(task_time, "HH:mm")
+            if parsed_time.isValid():
+                self.timeEdit.setTime(parsed_time)
 
-        self.addButton.setText("Vazifa yangilandi")
+        if hasattr(self, "deadlineEdit") and deadline:
+            dt = QDateTime.fromString(deadline, "yyyy-MM-dd HH:mm")
+            if dt.isValid():
+                self.deadlineEdit.setDateTime(dt)
+
+        self.addButton.setText("Vazifa yangilash")
 
     def delete_task(self):
         item = self.tasksListWidget.currentItem()
@@ -222,6 +359,7 @@ class Window(QWidget):
 
         if reply == QMessageBox.Yes:
             self.db_execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+            self.notified_task_ids.discard(task_id)
             self.update_task_list(self.selected_date_value())
 
     def save_checks(self):
@@ -236,7 +374,7 @@ class Window(QWidget):
                 WHERE id = ?
             """, (completed, task_id))
 
-        self.update_stats()
+        self.update_task_list(self.selected_date_value())
         QMessageBox.information(self, "Saqlash", "Checkbox holatlari saqlandi.")
 
     def filter_tasks(self):
@@ -256,9 +394,9 @@ class Window(QWidget):
             if search_text and search_text not in text:
                 visible = False
 
-            if status_filter == "Qadalgan" and is_done:
+            if status_filter in ["Qadalgan", "Qadalgani"] and is_done:
                 visible = False
-            elif status_filter == "Bajarilgan" and not is_done:
+            elif status_filter in ["Bajarilgan", "Bajarilgani"] and not is_done:
                 visible = False
 
             item.setHidden(not visible)
@@ -408,7 +546,7 @@ class Window(QWidget):
                 color: #374151;
             }
 
-            QLineEdit, QComboBox, QTimeEdit, QListWidget, QSpinBox, QCalendarWidget {
+            QLineEdit, QComboBox, QTimeEdit, QDateTimeEdit, QListWidget, QSpinBox, QCalendarWidget {
                 background-color: #ffffff;
                 color: #111827;
                 border: 1px solid #d1d5db;
@@ -416,7 +554,7 @@ class Window(QWidget):
                 padding: 8px;
             }
 
-            QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QListWidget:focus, QSpinBox:focus {
+            QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDateTimeEdit:focus, QListWidget:focus, QSpinBox:focus {
                 border: 2px solid #4f46e5;
             }
 
@@ -584,7 +722,7 @@ class Window(QWidget):
                 color: #d1d5db;
             }
 
-            QLineEdit, QComboBox, QTimeEdit, QListWidget, QSpinBox, QCalendarWidget {
+            QLineEdit, QComboBox, QTimeEdit, QDateTimeEdit, QListWidget, QSpinBox, QCalendarWidget {
                 background-color: #0f172a;
                 color: #e5e7eb;
                 border: 1px solid #334155;
@@ -592,7 +730,7 @@ class Window(QWidget):
                 padding: 8px;
             }
 
-            QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QListWidget:focus, QSpinBox:focus {
+            QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDateTimeEdit:focus, QListWidget:focus, QSpinBox:focus {
                 border: 2px solid #6366f1;
             }
 
@@ -705,6 +843,9 @@ class Window(QWidget):
             }
         """)
 
+    # =========================
+    # EXPORT
+    # =========================
     def export_csv(self):
         date_value = self.selected_date_value()
         filename, _ = QFileDialog.getSaveFileName(
@@ -717,7 +858,7 @@ class Window(QWidget):
             return
 
         rows = self.db_fetchall("""
-            SELECT task, category, completed, date, time
+            SELECT task, category, completed, date, time, deadline
             FROM tasks
             WHERE date = ?
             ORDER BY time ASC, id ASC
@@ -725,7 +866,7 @@ class Window(QWidget):
 
         with open(filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["Vazifalar", "Kategoriya", "Bajarildi", "Sana", "Vaqt"])
+            writer.writerow(["Vazifa", "Kategoriya", "Bajarildi", "Sana", "Vaqt", "Deadline"])
             for row in rows:
                 writer.writerow(row)
 
@@ -751,13 +892,13 @@ class Window(QWidget):
             return
 
         rows = self.db_fetchall("""
-            SELECT task, category, completed, time
+            SELECT task, category, completed, time, deadline
             FROM tasks
             WHERE date = ?
             ORDER BY time ASC, id ASC
         """, (date_value,))
 
-        c = canvas.Canvas(filename)
+        c = canvas.Canvas(filename, pagesize=A4)
         y = 800
 
         c.setFont("Helvetica-Bold", 16)
@@ -765,9 +906,9 @@ class Window(QWidget):
         y -= 30
 
         c.setFont("Helvetica", 11)
-        for task, category, completed, task_time in rows:
-            line = f"[{completed}] [{category}] [{task_time}] {task}"
-            c.drawString(50, y, line[:110])
+        for task, category, completed, task_time, deadline in rows:
+            line = f"[{completed}] [{category}] [{task_time}] [DL: {deadline}] {task}"
+            c.drawString(50, y, line[:115])
             y -= 20
             if y < 50:
                 c.showPage()
