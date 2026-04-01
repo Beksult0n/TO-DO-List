@@ -29,7 +29,7 @@
         <item>
          <widget class="QLabel" name="subtitleLabel">
           <property name="text">
-           <string>Vazifalar • Pomodoro • Saqlash</string>
+           <string>Vazifalar • Pomodoro • Saqlash • Deadline</string>
           </property>
          </widget>
         </item>
@@ -42,8 +42,8 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>0</width>
-          <height>0</height>
+          <width>40</width>
+          <height>20</height>
          </size>
         </property>
        </spacer>
@@ -69,10 +69,14 @@
      </layout>
     </widget>
    </item>
+
    <item>
     <layout class="QHBoxLayout" name="horizontalLayoutBody">
+
+     <!-- LEFT PANEL -->
      <item>
       <layout class="QVBoxLayout" name="leftPanelLayout">
+
        <item>
         <widget class="QGroupBox" name="calendarGroupBox">
          <property name="title">
@@ -81,12 +85,6 @@
          <layout class="QVBoxLayout" name="verticalLayoutCalendar">
           <item>
            <widget class="QCalendarWidget" name="calendarWidget">
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>16777215</height>
-             </size>
-            </property>
             <property name="gridVisible">
              <bool>true</bool>
             </property>
@@ -95,12 +93,14 @@
          </layout>
         </widget>
        </item>
+
        <item>
         <widget class="QGroupBox" name="pomodoroGroupBox">
          <property name="title">
           <string>Pomodoro Timer</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayoutPomodoro">
+
           <item>
            <widget class="QLabel" name="pomodoroTimeLabel">
             <property name="text">
@@ -111,6 +111,7 @@
             </property>
            </widget>
           </item>
+
           <item>
            <widget class="QLabel" name="pomodoroStatusLabel">
             <property name="text">
@@ -121,6 +122,7 @@
             </property>
            </widget>
           </item>
+
           <item>
            <layout class="QHBoxLayout" name="horizontalLayoutPomodoroSettings">
             <item>
@@ -145,6 +147,7 @@
             </item>
            </layout>
           </item>
+
           <item>
            <layout class="QHBoxLayout" name="horizontalLayoutPomodoroButtons">
             <item>
@@ -170,19 +173,25 @@
             </item>
            </layout>
           </item>
+
          </layout>
         </widget>
        </item>
+
       </layout>
      </item>
+
+     <!-- RIGHT PANEL -->
      <item>
       <layout class="QVBoxLayout" name="rightPanelLayout">
+
        <item>
         <widget class="QGroupBox" name="taskInputGroupBox">
          <property name="title">
           <string>Vazifa kiritish</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayoutTaskInput">
+
           <item>
            <widget class="QLineEdit" name="taskLineEdit">
             <property name="placeholderText">
@@ -190,6 +199,7 @@
             </property>
            </widget>
           </item>
+
           <item>
            <layout class="QHBoxLayout" name="horizontalLayoutTaskMeta">
             <item>
@@ -226,6 +236,7 @@
               </item>
              </widget>
             </item>
+
             <item>
              <widget class="QTimeEdit" name="timeEdit">
               <property name="displayFormat">
@@ -235,6 +246,29 @@
             </item>
            </layout>
           </item>
+
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayoutDeadline">
+            <item>
+             <widget class="QLabel" name="deadlineLabel">
+              <property name="text">
+               <string>Deadline</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDateTimeEdit" name="deadlineEdit">
+              <property name="displayFormat">
+               <string>yyyy-MM-dd HH:mm</string>
+              </property>
+              <property name="calendarPopup">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
           <item>
            <layout class="QHBoxLayout" name="horizontalLayoutTaskButtons">
             <item>
@@ -267,15 +301,18 @@
             </item>
            </layout>
           </item>
+
          </layout>
         </widget>
        </item>
+
        <item>
         <widget class="QGroupBox" name="taskListGroupBox">
          <property name="title">
           <string>Vazifalar</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayoutTaskList">
+
           <item>
            <layout class="QHBoxLayout" name="horizontalLayoutFilters">
             <item>
@@ -306,9 +343,11 @@
             </item>
            </layout>
           </item>
+
           <item>
            <widget class="QListWidget" name="tasksListWidget"/>
           </item>
+
           <item>
            <widget class="QProgressBar" name="progressBar">
             <property name="value">
@@ -316,16 +355,19 @@
             </property>
            </widget>
           </item>
+
           <item>
            <widget class="QLabel" name="statsLabel">
             <property name="text">
-             <string>Vazifalar: 0 | Bajarild: 0 | 0%</string>
+             <string>Vazifalar: 0 | Bajarildi: 0 | 0%</string>
             </property>
            </widget>
           </item>
+
          </layout>
         </widget>
        </item>
+
        <item>
         <layout class="QHBoxLayout" name="horizontalLayoutBottomButtons">
          <item>
@@ -351,8 +393,10 @@
          </item>
         </layout>
        </item>
+
       </layout>
      </item>
+
     </layout>
    </item>
   </layout>
