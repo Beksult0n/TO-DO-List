@@ -34,11 +34,17 @@ Ilova quyidagilar uchun mo‘ljallangan:
 ## 📅 Task Management
 
 ✔ Vazifa qo‘shish
+
 ✔ Vazifani tahrirlash
+
 ✔ Vazifani o‘chirish
+
 ✔ Vazifalarni sana bo‘yicha saqlash
+
 ✔ Kategoriyalar bilan ishlash
+
 ✔ Deadline qo‘shish
+
 ✔ Bajarilgan vazifalarni belgilash
 
 ---
