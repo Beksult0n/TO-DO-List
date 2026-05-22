@@ -180,18 +180,6 @@ TO-DO-List/
 
 ---
 
-# 👨‍💻 Developer
-
-<div align="center">
-
-## Beksult0n
-
-💻 Cybersecurity Enthusiast | Python Developer | CTF Player
-
-</div>
-
----
-
 # ⭐ Support
 
 Agar loyiha sizga yoqqan bo‘lsa:
